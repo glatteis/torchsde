@@ -27,7 +27,7 @@ from . import problems
 
 torch.manual_seed(1147481649)
 torch.set_default_dtype(torch.float64)
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 dtype = torch.get_default_dtype()
 
 
@@ -38,13 +38,23 @@ def _methods():
     yield SDE_TYPES.stratonovich, METHODS.reversible_heun, None
 
 
-@pytest.mark.parametrize("sde_cls", [problems.ExDiagonal, problems.ExScalar, problems.ExAdditive,
-                                     problems.NeuralGeneral])
+@pytest.mark.parametrize(
+    "sde_cls",
+    [
+        problems.ExDiagonal,
+        problems.ExScalar,
+        problems.ExAdditive,
+        problems.NeuralGeneral,
+    ],
+)
 @pytest.mark.parametrize("sde_type, method, options", _methods())
-@pytest.mark.parametrize('adaptive', (False,))
+@pytest.mark.parametrize("adaptive", (False,))
 def test_against_numerical(sde_cls, sde_type, method, options, adaptive):
     # Skipping below, since method not supported for corresponding noise types.
-    if sde_cls.noise_type == NOISE_TYPES.general and method in (METHODS.milstein, METHODS.srk):
+    if sde_cls.noise_type == NOISE_TYPES.general and method in (
+        METHODS.milstein,
+        METHODS.srk,
+    ):
         return
 
     d = 3
@@ -52,7 +62,7 @@ def test_against_numerical(sde_cls, sde_type, method, options, adaptive):
         NOISE_TYPES.scalar: 1,
         NOISE_TYPES.diagonal: d,
         NOISE_TYPES.general: 2,
-        NOISE_TYPES.additive: 2
+        NOISE_TYPES.additive: 2,
     }[sde_cls.noise_type]
     batch_size = 4
     t0, t1 = ts = torch.tensor([0.0, 0.5], device=device)
@@ -65,8 +75,12 @@ def test_against_numerical(sde_cls, sde_type, method, options, adaptive):
     else:
         levy_area_approximation = LEVY_AREA_APPROXIMATIONS.none
     bm = torchsde.BrownianInterval(
-        t0=t0, t1=t1, size=(batch_size, m), dtype=dtype, device=device,
-        levy_area_approximation=levy_area_approximation
+        t0=t0,
+        t1=t1,
+        size=(batch_size, m),
+        dtype=dtype,
+        device=device,
+        levy_area_approximation=levy_area_approximation,
     )
 
     if method == METHODS.reversible_heun:
@@ -80,8 +94,18 @@ def test_against_numerical(sde_cls, sde_type, method, options, adaptive):
 
     def func(inputs, modules):
         y0, sde = inputs[0], modules[0]
-        ys = torchsde.sdeint_adjoint(sde, y0, ts, dt=dt, method=method, adjoint_method=adjoint_method,
-                                     adaptive=adaptive, bm=bm, options=options, adjoint_options=adjoint_options)
+        ys = torchsde.sdeint_adjoint(
+            sde,
+            y0,
+            ts,
+            dt=dt,
+            method=method,
+            adjoint_method=adjoint_method,
+            adaptive=adaptive,
+            bm=bm,
+            options=options,
+            adjoint_options=adjoint_options,
+        )
         return (ys[-1] ** 2).sum(dim=1).mean(dim=0)
 
     # `grad_inputs=True` also works, but we really only care about grad wrt params and want fast tests.
@@ -97,13 +121,23 @@ def _methods_dt_tol():
             yield sde_type, method, options, 1e-3, 1e-2, 1e-2
 
 
-@pytest.mark.parametrize("sde_cls", [problems.NeuralDiagonal, problems.NeuralScalar, problems.NeuralAdditive,
-                                     problems.NeuralGeneral])
+@pytest.mark.parametrize(
+    "sde_cls",
+    [
+        problems.NeuralDiagonal,
+        problems.NeuralScalar,
+        problems.NeuralAdditive,
+        problems.NeuralGeneral,
+    ],
+)
 @pytest.mark.parametrize("sde_type, method, options, dt, rtol, atol", _methods_dt_tol())
 @pytest.mark.parametrize("len_ts", [2, 9])
 def test_against_sdeint(sde_cls, sde_type, method, options, dt, rtol, atol, len_ts):
     # Skipping below, since method not supported for corresponding noise types.
-    if sde_cls.noise_type == NOISE_TYPES.general and method in (METHODS.milstein, METHODS.srk):
+    if sde_cls.noise_type == NOISE_TYPES.general and method in (
+        METHODS.milstein,
+        METHODS.srk,
+    ):
         return
 
     d = 3
@@ -111,13 +145,15 @@ def test_against_sdeint(sde_cls, sde_type, method, options, dt, rtol, atol, len_
         NOISE_TYPES.scalar: 1,
         NOISE_TYPES.diagonal: d,
         NOISE_TYPES.general: 2,
-        NOISE_TYPES.additive: 2
+        NOISE_TYPES.additive: 2,
     }[sde_cls.noise_type]
     batch_size = 4
     ts = torch.linspace(0.0, 1.0, len_ts, device=device, dtype=torch.float64)
     t0 = ts[0]
     t1 = ts[-1]
-    y0 = torch.full((batch_size, d), 0.1, device=device, dtype=torch.float64, requires_grad=True)
+    y0 = torch.full(
+        (batch_size, d), 0.1, device=device, dtype=torch.float64, requires_grad=True
+    )
     sde = sde_cls(d=d, m=m, sde_type=sde_type).to(device, torch.float64)
 
     if method == METHODS.srk:
@@ -125,8 +161,12 @@ def test_against_sdeint(sde_cls, sde_type, method, options, dt, rtol, atol, len_
     else:
         levy_area_approximation = LEVY_AREA_APPROXIMATIONS.none
     bm = torchsde.BrownianInterval(
-        t0=t0, t1=t1, size=(batch_size, m), dtype=torch.float64, device=device,
-        levy_area_approximation=levy_area_approximation
+        t0=t0,
+        t1=t1,
+        size=(batch_size, m),
+        dtype=torch.float64,
+        device=device,
+        levy_area_approximation=levy_area_approximation,
     )
 
     if method == METHODS.reversible_heun:
@@ -140,23 +180,39 @@ def test_against_sdeint(sde_cls, sde_type, method, options, dt, rtol, atol, len_
     grad = torch.randn_like(ys_true)
     ys_true.backward(grad)
 
-    true_grad = torch.cat([y0.grad.view(-1)] + [param.grad.view(-1) for param in sde.parameters()])
+    true_grad = torch.cat(
+        [y0.grad.view(-1)] + [param.grad.view(-1) for param in sde.parameters()]
+    )
     y0.grad.zero_()
     for param in sde.parameters():
         param.grad.zero_()
 
-    ys_test = torchsde.sdeint_adjoint(sde, y0, ts, dt=dt, method=method, bm=bm, adjoint_method=adjoint_method,
-                                      options=options, adjoint_options=adjoint_options)
+    ys_test = torchsde.sdeint_adjoint(
+        sde,
+        y0,
+        ts,
+        dt=dt,
+        method=method,
+        bm=bm,
+        adjoint_method=adjoint_method,
+        options=options,
+        adjoint_options=adjoint_options,
+    )
     ys_test.backward(grad)
-    test_grad = torch.cat([y0.grad.view(-1)] + [param.grad.view(-1) for param in sde.parameters()])
+    test_grad = torch.cat(
+        [y0.grad.view(-1)] + [param.grad.view(-1) for param in sde.parameters()]
+    )
 
     torch.testing.assert_allclose(ys_true, ys_test)
     torch.testing.assert_allclose(true_grad, test_grad, rtol=rtol, atol=atol)
 
 
-@pytest.mark.parametrize("problem", [problems.BasicSDE1, problems.BasicSDE2, problems.BasicSDE3, problems.BasicSDE4])
+@pytest.mark.parametrize(
+    "problem",
+    [problems.BasicSDE1, problems.BasicSDE2, problems.BasicSDE3, problems.BasicSDE4],
+)
 @pytest.mark.parametrize("method", ["milstein", "srk"])
-@pytest.mark.parametrize('adaptive', (False, True))
+@pytest.mark.parametrize("adaptive", (False, True))
 def test_basic(problem, method, adaptive):
     d = 10
     batch_size = 128
@@ -169,7 +225,9 @@ def test_basic(problem, method, adaptive):
     num_before = _count_differentiable_params(problem)
 
     problem.zero_grad()
-    _, yt = torchsde.sdeint_adjoint(problem, y0, ts, method=method, dt=dt, adaptive=adaptive)
+    _, yt = torchsde.sdeint_adjoint(
+        problem, y0, ts, method=method, dt=dt, adaptive=adaptive
+    )
     loss = yt.sum(dim=1).mean(dim=0)
     loss.backward()
 

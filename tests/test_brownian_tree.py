@@ -37,11 +37,11 @@ LARGE_BATCH_SIZE = 16384
 REPS = 3
 ALPHA = 0.00001
 
-devices = [cpu, gpu] = [torch.device('cpu'), torch.device('cuda')]
+devices = [cpu, gpu] = [torch.device("cpu"), torch.device("cuda")]
 
 
 def _setup(device, batch_size):
-    t0, t1 = torch.tensor([0., 1.], device=device)
+    t0, t1 = torch.tensor([0.0, 1.0], device=device)
     w0 = torch.zeros(batch_size, D, device=device)
     t = torch.rand([]).to(device)
     bm = torchsde.BrownianTree(t0=t0, t1=t1, w0=w0, entropy=0)
@@ -88,7 +88,9 @@ def test_normality(device):
         w0_, w1_ = 0.0, npr.randn()
         w0 = torch.tensor(w0_, device=device).repeat(LARGE_BATCH_SIZE)
         w1 = torch.tensor(w1_, device=device).repeat(LARGE_BATCH_SIZE)
-        bm = torchsde.BrownianTree(t0=t0, t1=t1, w0=w0, w1=w1, pool_size=100, tol=1e-14)  # noqa
+        bm = torchsde.BrownianTree(
+            t0=t0, t1=t1, w0=w0, w1=w1, pool_size=100, tol=1e-14
+        )  # noqa
 
         for _ in range(REPS):
             t_ = npr.uniform(low=t0_ + eps, high=t1_ - eps)

@@ -33,9 +33,11 @@ class SRK(base_solver.BaseSDESolver):
     weak_order = 1.5
     sde_type = SDE_TYPES.ito
     noise_types = (NOISE_TYPES.additive, NOISE_TYPES.diagonal, NOISE_TYPES.scalar)
-    levy_area_approximations = (LEVY_AREA_APPROXIMATIONS.space_time,
-                                LEVY_AREA_APPROXIMATIONS.davie,
-                                LEVY_AREA_APPROXIMATIONS.foster)
+    levy_area_approximations = (
+        LEVY_AREA_APPROXIMATIONS.space_time,
+        LEVY_AREA_APPROXIMATIONS.davie,
+        LEVY_AREA_APPROXIMATIONS.foster,
+    )
 
     def __init__(self, sde, **kwargs):
         if sde.noise_type == NOISE_TYPES.additive:
@@ -44,9 +46,11 @@ class SRK(base_solver.BaseSDESolver):
             self.step = self.diagonal_or_scalar_step
 
         if isinstance(sde, adjoint_sde.AdjointSDE):
-            raise ValueError("Stochastic Runge–Kutta methods cannot be used for adjoint SDEs, because it requires "
-                             "direct access to the diffusion, whilst adjoint SDEs rely on a more efficient "
-                             "diffusion-vector product. Use a different method instead.")
+            raise ValueError(
+                "Stochastic Runge–Kutta methods cannot be used for adjoint SDEs, because it requires "
+                "direct access to the diffusion, whilst adjoint SDEs rely on a more efficient "
+                "diffusion-vector product. Use a different method instead."
+            )
 
         super(SRK, self).__init__(sde=sde, **kwargs)
 
@@ -60,8 +64,8 @@ class SRK(base_solver.BaseSDESolver):
         rdt = 1 / dt
         sqrt_dt = dt.sqrt()
         I_k, I_k0 = self.bm(t0, t1, return_U=True)
-        I_kk = (I_k ** 2 - dt) * _r2
-        I_kkk = (I_k ** 3 - 3 * dt * I_k) * _r6
+        I_kk = (I_k**2 - dt) * _r2
+        I_kkk = (I_k**3 - 3 * dt * I_k) * _r6
 
         y1 = y0
         H0, H1 = [], []
@@ -78,10 +82,10 @@ class SRK(base_solver.BaseSDESolver):
 
             f = self.sde.f(t0 + srid2.C0[s] * dt, H0s)
             g_weight = (
-                    srid2.beta1[s] * I_k +
-                    srid2.beta2[s] * I_kk / sqrt_dt +
-                    srid2.beta3[s] * I_k0 * rdt +
-                    srid2.beta4[s] * I_kkk * rdt
+                srid2.beta1[s] * I_k
+                + srid2.beta2[s] * I_kk / sqrt_dt
+                + srid2.beta3[s] * I_k0 * rdt
+                + srid2.beta4[s] * I_kkk * rdt
             )
             g_prod = self.sde.g_prod(t0 + srid2.C1[s] * dt, H1s, g_weight)
             y1 = y1 + srid2.alpha[s] * f * dt + g_prod

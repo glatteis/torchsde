@@ -32,19 +32,26 @@ def to_numpy(*args):
             arg = _to_numpy_single(arg)
         return arg
     else:
-        return tuple(_to_numpy_single(arg) if isinstance(arg, torch.Tensor) else arg for arg in args)
+        return tuple(
+            _to_numpy_single(arg) if isinstance(arg, torch.Tensor) else arg
+            for arg in args
+        )
 
 
 def _to_numpy_single(arg: torch.Tensor) -> np.ndarray:
     return arg.detach().cpu().numpy()
 
 
-def mse(x: Tensor, y: Tensor, norm_dim: Optional[int] = 1, mean_dim: Optional[int] = 0) -> np.ndarray:
+def mse(
+    x: Tensor, y: Tensor, norm_dim: Optional[int] = 1, mean_dim: Optional[int] = 0
+) -> np.ndarray:
     """Compute mean squared error."""
     return _to_numpy_single((torch.norm(x - y, dim=norm_dim) ** 2).mean(dim=mean_dim))
 
 
-def mae(x: Tensor, y: Tensor, test_func: Callable, mean_dim: Optional[int] = 0) -> np.ndarray:
+def mae(
+    x: Tensor, y: Tensor, test_func: Callable, mean_dim: Optional[int] = 0
+) -> np.ndarray:
     return _to_numpy_single(
         abs(test_func(x).mean(mean_dim) - test_func(y).mean(mean_dim))
     )
@@ -83,38 +90,48 @@ def swiss_knife_plotter(img_path, plots=None, scatters=None, hists=None, options
     if not os.path.exists(img_dir):
         os.makedirs(img_dir)
 
-    if plots is None: plots = ()
-    if scatters is None: scatters = ()
-    if hists is None: hists = ()
-    if options is None: options = {}
+    if plots is None:
+        plots = ()
+    if scatters is None:
+        scatters = ()
+    if hists is None:
+        hists = ()
+    if options is None:
+        options = {}
 
     plt.figure(dpi=300)
-    if 'xscale' in options: plt.xscale(options['xscale'])
-    if 'yscale' in options: plt.yscale(options['yscale'])
-    if 'xlabel' in options: plt.xlabel(options['xlabel'])
-    if 'ylabel' in options: plt.ylabel(options['ylabel'])
-    if 'title' in options: plt.title(options['title'])
+    if "xscale" in options:
+        plt.xscale(options["xscale"])
+    if "yscale" in options:
+        plt.yscale(options["yscale"])
+    if "xlabel" in options:
+        plt.xlabel(options["xlabel"])
+    if "ylabel" in options:
+        plt.ylabel(options["ylabel"])
+    if "title" in options:
+        plt.title(options["title"])
 
-    cycle_linestyle = options.get('cycle_linestyle', False)
+    cycle_linestyle = options.get("cycle_linestyle", False)
     cycler = itertools.cycle(["-", "--", "-.", ":"]) if cycle_linestyle else None
     for entry in plots:
-        kwargs = {key: entry[key] for key in entry if key != 'x' and key != 'y'}
-        entry['x'], entry['y'] = to_numpy(entry['x'], entry['y'])
+        kwargs = {key: entry[key] for key in entry if key != "x" and key != "y"}
+        entry["x"], entry["y"] = to_numpy(entry["x"], entry["y"])
         if cycle_linestyle:
-            kwargs['linestyle'] = next(cycler)
-        plt.plot(entry['x'], entry['y'], **kwargs)
+            kwargs["linestyle"] = next(cycler)
+        plt.plot(entry["x"], entry["y"], **kwargs)
 
     for entry in scatters:
-        kwargs = {key: entry[key] for key in entry if key != 'x' and key != 'y'}
-        entry['x'], entry['y'] = to_numpy(entry['x'], entry['y'])
-        plt.scatter(entry['x'], entry['y'], **kwargs)
+        kwargs = {key: entry[key] for key in entry if key != "x" and key != "y"}
+        entry["x"], entry["y"] = to_numpy(entry["x"], entry["y"])
+        plt.scatter(entry["x"], entry["y"], **kwargs)
 
     for entry in hists:
-        kwargs = {key: entry[key] for key in entry if key != 'x'}
-        entry['x'] = to_numpy(entry['x'])
-        plt.hist(entry['x'], **kwargs)
+        kwargs = {key: entry[key] for key in entry if key != "x"}
+        entry["x"] = to_numpy(entry["x"])
+        plt.hist(entry["x"], **kwargs)
 
-    if len(plots) > 0 or len(scatters) > 0: plt.legend()
+    if len(plots) > 0 or len(scatters) > 0:
+        plt.legend()
     plt.tight_layout()
     plt.savefig(img_path)
     plt.close()

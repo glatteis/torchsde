@@ -37,11 +37,11 @@ BATCH_SIZE = 131072
 REPS = 3
 ALPHA = 0.00001
 
-devices = [cpu, gpu] = [torch.device('cpu'), torch.device('cuda')]
+devices = [cpu, gpu] = [torch.device("cpu"), torch.device("cuda")]
 
 
 def _setup(device):
-    t0, t1 = torch.tensor([0., 1.], device=device)
+    t0, t1 = torch.tensor([0.0, 1.0], device=device)
     w0, w1 = torch.randn([2, BATCH_SIZE, D], device=device)
     t = torch.rand([], device=device)
     bm = torchsde.BrownianPath(t0=t0, w0=w0)
@@ -84,7 +84,9 @@ def test_normality(device):
 
         w1_ = bm(t1_).cpu().numpy()
 
-        t_ = npr.uniform(low=t0_ + eps, high=t1_ - eps)  # Avoid sampling too close to the boundary.
+        t_ = npr.uniform(
+            low=t0_ + eps, high=t1_ - eps
+        )  # Avoid sampling too close to the boundary.
         samples_ = bm(t_).cpu().numpy()
 
         # True expected mean from Brownian bridge.

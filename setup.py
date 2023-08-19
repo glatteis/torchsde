@@ -19,14 +19,14 @@ import setuptools
 
 # for simplicity we actually store the version in the __version__ attribute in the source
 here = os.path.realpath(os.path.dirname(__file__))
-with open(os.path.join(here, 'torchsde', '__init__.py')) as f:
+with open(os.path.join(here, "torchsde", "__init__.py")) as f:
     meta_match = re.search(r"^__version__ = ['\"]([^'\"]*)['\"]", f.read(), re.M)
     if meta_match:
         version = meta_match.group(1)
     else:
         raise RuntimeError("Unable to find __version__ string.")
 
-with open(os.path.join(here, 'README.md')) as f:
+with open(os.path.join(here, "README.md")) as f:
     readme = f.read()
 
 setuptools.setup(
@@ -38,7 +38,9 @@ setuptools.setup(
     long_description=readme,
     long_description_content_type="text/markdown",
     url="https://github.com/google-research/torchsde",
-    packages=setuptools.find_packages(exclude=['benchmarks', 'diagnostics', 'examples', 'tests']),
+    packages=setuptools.find_packages(
+        exclude=["benchmarks", "diagnostics", "examples", "tests"]
+    ),
     install_requires=[
         "boltons>=20.2.1",
         "numpy==1.19.*;python_version<'3.7'",
@@ -48,7 +50,7 @@ setuptools.setup(
         "torch>=1.6.0",
         "trampoline>=0.1.2",
     ],
-    python_requires='~=3.6',
+    python_requires="~=3.6",
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: Apache Software License",

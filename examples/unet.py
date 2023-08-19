@@ -45,7 +45,7 @@ class SinusoidalPosEmb(nn.Module):
         super().__init__()
         half_dim = dim // 2
         emb = math.log(10000) / (half_dim - 1)
-        self.register_buffer('emb', torch.exp(torch.arange(half_dim) * -emb))
+        self.register_buffer("emb", torch.exp(torch.arange(half_dim) * -emb))
 
     def forward(self, x):
         emb = x[:, None] * self.emb[None, :]
@@ -82,16 +82,20 @@ class LinearTimeSelfAttention(nn.Module):
         b, c, h, w = x.shape
         x = self.group_norm(x)
         qkv = self.to_qkv(x)
-        q, k, v = rearrange(qkv, 'b (qkv heads c) h w -> qkv b heads c (h w)', heads=self.heads, qkv=3)
+        q, k, v = rearrange(
+            qkv, "b (qkv heads c) h w -> qkv b heads c (h w)", heads=self.heads, qkv=3
+        )
         k = k.softmax(dim=-1)
-        context = torch.einsum('bhdn,bhen->bhde', k, v)
-        out = torch.einsum('bhde,bhdn->bhen', context, q)
-        out = rearrange(out, 'b heads c (h w) -> b (heads c) h w', heads=self.heads, h=h, w=w)
+        context = torch.einsum("bhdn,bhen->bhde", k, v)
+        out = torch.einsum("bhde,bhdn->bhen", context, q)
+        out = rearrange(
+            out, "b heads c (h w) -> b (heads c) h w", heads=self.heads, h=h, w=w
+        )
         return self.to_out(out)
 
 
 class ResnetBlock(nn.Module):
-    def __init__(self, dim, dim_out, *, time_emb_dim, groups=8, dropout_rate=0.):
+    def __init__(self, dim, dim_out, *, time_emb_dim, groups=8, dropout_rate=0.0):
         super().__init__()
         # groups: Used in group norm.
         self.dim = dim
@@ -100,10 +104,7 @@ class ResnetBlock(nn.Module):
         self.dropout_rate = dropout_rate
         self.time_emb_dim = time_emb_dim
 
-        self.mlp = nn.Sequential(
-            Mish(),
-            nn.Linear(time_emb_dim, dim_out)
-        )
+        self.mlp = nn.Sequential(Mish(), nn.Linear(time_emb_dim, dim_out))
         # Norm -> non-linearity -> conv format follows
         # https://github.com/hojonathanho/diffusion/blob/1e0dceb3b3495bbe19116a5e1b3596cd0706c543/diffusion_tf/nn.py#L55
         self.block1 = nn.Sequential(
@@ -126,8 +127,10 @@ class ResnetBlock(nn.Module):
         return h + self.res_conv(x)
 
     def __repr__(self):
-        return (f"{self.__class__.__name__}(dim={self.dim}, dim_out={self.dim_out}, time_emb_dim="
-                f"{self.time_emb_dim}, groups={self.groups}, dropout_rate={self.dropout_rate})")
+        return (
+            f"{self.__class__.__name__}(dim={self.dim}, dim_out={self.dim_out}, time_emb_dim="
+            f"{self.time_emb_dim}, groups={self.groups}, dropout_rate={self.dropout_rate})"
+        )
 
 
 class Residual(nn.Module):
@@ -144,7 +147,7 @@ class Blur(nn.Module):
         super().__init__()
         f = torch.Tensor([1, 2, 1])
         f = f[None, None, :] * f[None, :, None]
-        self.register_buffer('f', f)
+        self.register_buffer("f", f)
 
     def forward(self, x):
         return kornia.filter2D(x, self.f, normalized=True)
@@ -170,8 +173,7 @@ class Upsample(nn.Module):
         super().__init__()
         if blur:
             self.conv = nn.Sequential(
-                nn.ConvTranspose2d(dim, dim, kernel_size=4, stride=2, padding=1),
-                Blur()
+                nn.ConvTranspose2d(dim, dim, kernel_size=4, stride=2, padding=1), Blur()
             )
         else:
             self.conv = nn.ConvTranspose2d(dim, dim, kernel_size=4, stride=2, padding=1)
@@ -181,17 +183,19 @@ class Upsample(nn.Module):
 
 
 class Unet(nn.Module):
-    def __init__(self,
-                 input_size=(3, 32, 32),
-                 hidden_channels=64,
-                 dim_mults=(1, 2, 4, 8),
-                 groups=32,
-                 heads=4,
-                 dim_head=32,
-                 dropout_rate=0.,
-                 num_res_blocks=2,
-                 attn_resolutions=(16,),
-                 attention_cls=SelfAttention):
+    def __init__(
+        self,
+        input_size=(3, 32, 32),
+        hidden_channels=64,
+        dim_mults=(1, 2, 4, 8),
+        groups=32,
+        heads=4,
+        dim_head=32,
+        dropout_rate=0.0,
+        num_res_blocks=2,
+        attn_resolutions=(16,),
+        attention_cls=SelfAttention,
+    ):
         super().__init__()
         in_channels, in_height, in_width = input_size
         dims = [hidden_channels, *map(lambda m: hidden_channels * m, dim_mults)]
@@ -201,41 +205,54 @@ class Unet(nn.Module):
         self.mlp = nn.Sequential(
             nn.Linear(hidden_channels, hidden_channels * 4),
             Mish(),
-            nn.Linear(hidden_channels * 4, hidden_channels)
+            nn.Linear(hidden_channels * 4, hidden_channels),
         )
 
-        self.first_conv = nn.Conv2d(in_channels, hidden_channels, kernel_size=3, padding=1)
+        self.first_conv = nn.Conv2d(
+            in_channels, hidden_channels, kernel_size=3, padding=1
+        )
 
         h, w = in_height, in_width
         self.down_res_blocks = nn.ModuleList([])
         self.down_attn_blocks = nn.ModuleList([])
         self.down_spatial_blocks = nn.ModuleList([])
         for ind, (dim_in, dim_out) in enumerate(in_out):
-            res_blocks = nn.ModuleList([
-                ResnetBlock(
-                    dim=dim_in,
-                    dim_out=dim_out,
-                    time_emb_dim=hidden_channels,
-                    groups=groups,
-                    dropout_rate=dropout_rate
-                )
-            ])
-            res_blocks.extend([
-                ResnetBlock(
-                    dim=dim_out,
-                    dim_out=dim_out,
-                    time_emb_dim=hidden_channels,
-                    groups=groups,
-                    dropout_rate=dropout_rate
-                ) for _ in range(num_res_blocks - 1)
-            ])
+            res_blocks = nn.ModuleList(
+                [
+                    ResnetBlock(
+                        dim=dim_in,
+                        dim_out=dim_out,
+                        time_emb_dim=hidden_channels,
+                        groups=groups,
+                        dropout_rate=dropout_rate,
+                    )
+                ]
+            )
+            res_blocks.extend(
+                [
+                    ResnetBlock(
+                        dim=dim_out,
+                        dim_out=dim_out,
+                        time_emb_dim=hidden_channels,
+                        groups=groups,
+                        dropout_rate=dropout_rate,
+                    )
+                    for _ in range(num_res_blocks - 1)
+                ]
+            )
             self.down_res_blocks.append(res_blocks)
 
             attn_blocks = nn.ModuleList([])
             if h in attn_resolutions and w in attn_resolutions:
                 attn_blocks.extend(
-                    [Residual(attention_cls(dim_out, heads=heads, dim_head=dim_head, groups=groups))
-                     for _ in range(num_res_blocks)]
+                    [
+                        Residual(
+                            attention_cls(
+                                dim_out, heads=heads, dim_head=dim_head, groups=groups
+                            )
+                        )
+                        for _ in range(num_res_blocks)
+                    ]
                 )
             self.down_attn_blocks.append(attn_blocks)
 
@@ -252,49 +269,66 @@ class Unet(nn.Module):
             dim_out=mid_dim,
             time_emb_dim=hidden_channels,
             groups=groups,
-            dropout_rate=dropout_rate
+            dropout_rate=dropout_rate,
         )
-        self.mid_attn = Residual(attention_cls(mid_dim, heads=heads, dim_head=dim_head, groups=groups))
+        self.mid_attn = Residual(
+            attention_cls(mid_dim, heads=heads, dim_head=dim_head, groups=groups)
+        )
         self.mid_block2 = ResnetBlock(
             dim=mid_dim,
             dim_out=mid_dim,
             time_emb_dim=hidden_channels,
             groups=groups,
-            dropout_rate=dropout_rate
+            dropout_rate=dropout_rate,
         )
 
         self.ups_res_blocks = nn.ModuleList([])
         self.ups_attn_blocks = nn.ModuleList([])
         self.ups_spatial_blocks = nn.ModuleList([])
         for ind, (dim_in, dim_out) in enumerate(reversed(in_out)):
-            res_blocks = nn.ModuleList([
-                ResnetBlock(
-                    dim=dim_out * 2,
-                    dim_out=dim_out,
-                    time_emb_dim=hidden_channels,
-                    groups=groups,
-                    dropout_rate=dropout_rate
-                ) for _ in range(num_res_blocks)
-            ])
-            res_blocks.extend([
-                ResnetBlock(
-                    dim=dim_out + dim_in,
-                    dim_out=dim_in,
-                    time_emb_dim=hidden_channels,
-                    groups=groups,
-                    dropout_rate=dropout_rate
-                )
-            ])
+            res_blocks = nn.ModuleList(
+                [
+                    ResnetBlock(
+                        dim=dim_out * 2,
+                        dim_out=dim_out,
+                        time_emb_dim=hidden_channels,
+                        groups=groups,
+                        dropout_rate=dropout_rate,
+                    )
+                    for _ in range(num_res_blocks)
+                ]
+            )
+            res_blocks.extend(
+                [
+                    ResnetBlock(
+                        dim=dim_out + dim_in,
+                        dim_out=dim_in,
+                        time_emb_dim=hidden_channels,
+                        groups=groups,
+                        dropout_rate=dropout_rate,
+                    )
+                ]
+            )
             self.ups_res_blocks.append(res_blocks)
 
             attn_blocks = nn.ModuleList([])
             if h in attn_resolutions and w in attn_resolutions:
                 attn_blocks.extend(
-                    [Residual(attention_cls(dim_out, heads=heads, dim_head=dim_head, groups=groups))
-                     for _ in range(num_res_blocks)]
+                    [
+                        Residual(
+                            attention_cls(
+                                dim_out, heads=heads, dim_head=dim_head, groups=groups
+                            )
+                        )
+                        for _ in range(num_res_blocks)
+                    ]
                 )
                 attn_blocks.append(
-                    Residual(attention_cls(dim_in, heads=heads, dim_head=dim_head, groups=groups))
+                    Residual(
+                        attention_cls(
+                            dim_in, heads=heads, dim_head=dim_head, groups=groups
+                        )
+                    )
                 )
             self.ups_attn_blocks.append(attn_blocks)
 
@@ -307,7 +341,7 @@ class Unet(nn.Module):
         self.final_conv = nn.Sequential(
             nn.GroupNorm(groups, hidden_channels),
             Mish(),
-            nn.Conv2d(hidden_channels, in_channels, 1)
+            nn.Conv2d(hidden_channels, in_channels, 1),
         )
 
     def forward(self, t, x):
@@ -315,7 +349,8 @@ class Unet(nn.Module):
 
         hs = [self.first_conv(x)]
         for i, (res_blocks, attn_blocks, spatial_blocks) in enumerate(
-                zip(self.down_res_blocks, self.down_attn_blocks, self.down_spatial_blocks)):
+            zip(self.down_res_blocks, self.down_attn_blocks, self.down_spatial_blocks)
+        ):
             if len(attn_blocks) > 0:
                 for res_block, attn_block in zip(res_blocks, attn_blocks):
                     h = res_block(hs[-1], t)
@@ -326,7 +361,7 @@ class Unet(nn.Module):
                     h = res_block(hs[-1], t)
                     hs.append(h)
             if len(spatial_blocks) > 0:
-                spatial_block, = spatial_blocks
+                (spatial_block,) = spatial_blocks
                 hs.append(spatial_block(hs[-1]))
 
         h = hs[-1]
@@ -335,7 +370,8 @@ class Unet(nn.Module):
         h = self.mid_block2(h, t)
 
         for i, (res_blocks, attn_blocks, spatial_blocks) in enumerate(
-                zip(self.ups_res_blocks, self.ups_attn_blocks, self.ups_spatial_blocks)):
+            zip(self.ups_res_blocks, self.ups_attn_blocks, self.ups_spatial_blocks)
+        ):
             if len(attn_blocks) > 0:
                 for res_block, attn_block in zip(res_blocks, attn_blocks):
                     h = res_block(torch.cat((h, hs.pop()), dim=1), t)
@@ -344,6 +380,6 @@ class Unet(nn.Module):
                 for res_block in res_blocks:
                     h = res_block(torch.cat((h, hs.pop()), dim=1), t)
             if len(spatial_blocks) > 0:
-                spatial_block, = spatial_blocks
+                (spatial_block,) = spatial_blocks
                 h = spatial_block(h)
         return self.final_conv(h)

@@ -29,16 +29,18 @@ def assert_allclose(actual, expected, rtol=1e-3, atol=1e-2):
         torch.testing.assert_allclose(actual, expected, rtol=rtol, atol=atol)
 
 
-def gradcheck(func: Callable,
-              inputs: TensorOrTensors,
-              modules: Optional[ModuleOrModules] = (),
-              eps: float = 1e-6,
-              atol: float = 1e-5,
-              rtol: float = 1e-3,
-              grad_inputs=False,
-              gradgrad_inputs=False,
-              grad_params=False,
-              gradgrad_params=False):
+def gradcheck(
+    func: Callable,
+    inputs: TensorOrTensors,
+    modules: Optional[ModuleOrModules] = (),
+    eps: float = 1e-6,
+    atol: float = 1e-5,
+    rtol: float = 1e-3,
+    grad_inputs=False,
+    gradgrad_inputs=False,
+    grad_params=False,
+    gradgrad_params=False,
+):
     """Check grad and grad of grad wrt inputs and parameters of Modules.
 
     When `func` is vector-valued, the checks compare autodiff vjp against
@@ -71,10 +73,17 @@ def gradcheck(func: Callable,
     """
 
     def convert_none_to_zeros(sequence, like_sequence):
-        return [torch.zeros_like(q) if p is None else p for p, q in zip(sequence, like_sequence)]
+        return [
+            torch.zeros_like(q) if p is None else p
+            for p, q in zip(sequence, like_sequence)
+        ]
 
     def flatten(sequence):
-        return torch.cat([p.reshape(-1) for p in sequence]) if len(sequence) > 0 else torch.tensor([])
+        return (
+            torch.cat([p.reshape(-1) for p in sequence])
+            if len(sequence) > 0
+            else torch.tensor([])
+        )
 
     if isinstance(inputs, torch.Tensor):
         inputs = (inputs,)
@@ -91,17 +100,25 @@ def gradcheck(func: Callable,
 
     # Grad wrt inputs.
     if grad_inputs:
-        torch.autograd.gradcheck(func_only_inputs, inputs, eps=eps, atol=atol, rtol=rtol)
+        torch.autograd.gradcheck(
+            func_only_inputs, inputs, eps=eps, atol=atol, rtol=rtol
+        )
 
     # Grad of grad wrt inputs.
     if gradgrad_inputs:
-        torch.autograd.gradgradcheck(func_only_inputs, inputs, eps=eps, atol=atol, rtol=rtol)
+        torch.autograd.gradgradcheck(
+            func_only_inputs, inputs, eps=eps, atol=atol, rtol=rtol
+        )
 
     # Grad wrt params.
     if grad_params:
         params = [p for m in modules for p in m.parameters() if p.requires_grad]
         loss = func(inputs, modules)
-        framework_grad = flatten(convert_none_to_zeros(torch.autograd.grad(loss, params, create_graph=True), params))
+        framework_grad = flatten(
+            convert_none_to_zeros(
+                torch.autograd.grad(loss, params, create_graph=True), params
+            )
+        )
 
         numerical_grad = []
         for param in params:
@@ -118,21 +135,36 @@ def gradcheck(func: Callable,
                 numerical_grad.append((plus_eps - minus_eps) / (2 * eps))
                 del plus_eps, minus_eps
         numerical_grad = torch.stack(numerical_grad)
-        torch.testing.assert_allclose(numerical_grad, framework_grad, rtol=rtol, atol=atol)
+        torch.testing.assert_allclose(
+            numerical_grad, framework_grad, rtol=rtol, atol=atol
+        )
 
     # Grad of grad wrt params.
     if gradgrad_params:
+
         def func_high_order(inputs, modules):
             params = [p for m in modules for p in m.parameters() if p.requires_grad]
-            grads = torch.autograd.grad(func(inputs, modules), params, create_graph=True, allow_unused=True)
+            grads = torch.autograd.grad(
+                func(inputs, modules), params, create_graph=True, allow_unused=True
+            )
             return tuple(grad for grad in grads if grad is not None)
 
-        gradcheck(func_high_order, inputs, modules, rtol=rtol, atol=atol, eps=eps, grad_params=True)
+        gradcheck(
+            func_high_order,
+            inputs,
+            modules,
+            rtol=rtol,
+            atol=atol,
+            eps=eps,
+            grad_params=True,
+        )
 
 
 def _make_scalar_valued_func(func, inputs, modules):
     outputs = func(inputs, modules)
-    output_size = outputs.numel() if torch.is_tensor(outputs) else sum(o.numel() for o in outputs)
+    output_size = (
+        outputs.numel() if torch.is_tensor(outputs) else sum(o.numel() for o in outputs)
+    )
 
     if output_size > 1:
         # Define this outside `func_scalar_valued` so that random tensors are generated only once.
@@ -140,7 +172,10 @@ def _make_scalar_valued_func(func, inputs, modules):
 
         def func_scalar_valued(inputs, modules):
             outputs = func(inputs, modules)
-            return sum((output * grad_output).sum() for output, grad_output, in zip(outputs, grad_outputs))
+            return sum(
+                (output * grad_output).sum()
+                for output, grad_output, in zip(outputs, grad_outputs)
+            )
 
         return func_scalar_valued
 

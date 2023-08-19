@@ -59,7 +59,8 @@ class Module(abc.ABC, nn.Module):
         self._checkpoint = False
 
     def zero_grad(self) -> None:
-        for p in self.parameters(): p.grad = None
+        for p in self.parameters():
+            p.grad = None
 
     @property
     def device(self):
@@ -74,7 +75,15 @@ class ScoreMatchingSDE(Module):
         https://arxiv.org/abs/2011.13456
     """
 
-    def __init__(self, denoiser, input_size=(1, 28, 28), t0=0., t1=1., beta_min=.1, beta_max=20.):
+    def __init__(
+        self,
+        denoiser,
+        input_size=(1, 28, 28),
+        t0=0.0,
+        t1=1.0,
+        beta_min=0.1,
+        beta_max=20.0,
+    ):
         super(ScoreMatchingSDE, self).__init__()
         if t0 > t1:
             raise ValueError(f"Expected t0 <= t1, but found t0={t0:.4f}, t1={t1:.4f}")
@@ -100,15 +109,19 @@ class ScoreMatchingSDE(Module):
 
     def _indefinite_int(self, t):
         """Indefinite integral of beta(t)."""
-        return self.beta_min * t + .5 * t ** 2 * (self.beta_max - self.beta_min)
+        return self.beta_min * t + 0.5 * t**2 * (self.beta_max - self.beta_min)
 
     def analytical_mean(self, t, x_t0):
-        mean_coeff = (-.5 * (self._indefinite_int(t) - self._indefinite_int(self.t0))).exp()
+        mean_coeff = (
+            -0.5 * (self._indefinite_int(t) - self._indefinite_int(self.t0))
+        ).exp()
         mean = x_t0 * fill_tail_dims(mean_coeff, x_t0)
         return mean
 
     def analytical_var(self, t, x_t0):
-        analytical_var = 1 - (-self._indefinite_int(t) + self._indefinite_int(self.t0)).exp()
+        analytical_var = (
+            1 - (-self._indefinite_int(t) + self._indefinite_int(self.t0)).exp()
+        )
         return analytical_var
 
     @torch.no_grad()
@@ -121,7 +134,7 @@ class ScoreMatchingSDE(Module):
     def analytical_score(self, x_t, t, x_t0):
         mean = self.analytical_mean(t, x_t0)
         var = self.analytical_var(t, x_t0)
-        return - (x_t - mean) / fill_tail_dims(var, mean).clamp_min(1e-5)
+        return -(x_t - mean) / fill_tail_dims(var, mean).clamp_min(1e-5)
 
     def f(self, t, y):
         return -0.5 * self._beta(t) * y
@@ -129,8 +142,10 @@ class ScoreMatchingSDE(Module):
     def g(self, t, y):
         return fill_tail_dims(self._beta(t).sqrt(), y).expand_as(y)
 
-    def sample_t1_marginal(self, batch_size, tau=1.):
-        return torch.randn(size=(batch_size, *self.input_size), device=self.device) * math.sqrt(tau)
+    def sample_t1_marginal(self, batch_size, tau=1.0):
+        return torch.randn(
+            size=(batch_size, *self.input_size), device=self.device
+        ) * math.sqrt(tau)
 
     def lambda_t(self, t):
         return self.analytical_var(t, None)
@@ -139,9 +154,13 @@ class ScoreMatchingSDE(Module):
         """Compute the score matching objective.
         Split [t0, t1] into partitions; sample uniformly on each partition to reduce gradient variance.
         """
-        u = torch.rand(size=(x_t0.shape[0], partitions), dtype=x_t0.dtype, device=x_t0.device)
+        u = torch.rand(
+            size=(x_t0.shape[0], partitions), dtype=x_t0.dtype, device=x_t0.device
+        )
         u.mul_((self.t1 - self.t0) / partitions)
-        shifts = torch.arange(0, partitions, device=x_t0.device, dtype=x_t0.dtype)[None, :]
+        shifts = torch.arange(0, partitions, device=x_t0.device, dtype=x_t0.dtype)[
+            None, :
+        ]
         shifts.mul_((self.t1 - self.t0) / partitions).add_(self.t0)
         t = (u + shifts).reshape(-1)
         lambda_t = self.lambda_t(t)
@@ -151,7 +170,9 @@ class ScoreMatchingSDE(Module):
 
         fake_score = self.score(t, x_t)
         true_score = self.analytical_score(x_t, t, x_t0)
-        loss = (lambda_t * ((fake_score - true_score) ** 2).flatten(start_dim=1).sum(dim=1))
+        loss = lambda_t * ((fake_score - true_score) ** 2).flatten(start_dim=1).sum(
+            dim=1
+        )
         return loss
 
 
@@ -162,6 +183,7 @@ class ReverseDiffeqWrapper(Module):
     used for computing the score, and the `forward` here is used for odeint.
     Helps with data parallel.
     """
+
     noise_type = "diagonal"
     sde_type = "stratonovich"
 
@@ -171,12 +193,17 @@ class ReverseDiffeqWrapper(Module):
 
     # --- odeint ---
     def forward(self, t, y):
-        return -(self.module.f(-t, y) - .5 * self.module.g(-t, y) ** 2 * self.module.score(-t, y))
+        return -(
+            self.module.f(-t, y)
+            - 0.5 * self.module.g(-t, y) ** 2 * self.module.score(-t, y)
+        )
 
     # --- sdeint ---
     def f(self, t, y):
         y = y.view(-1, *self.module.input_size)
-        out = -(self.module.f(-t, y) - self.module.g(-t, y) ** 2 * self.module.score(-t, y))
+        out = -(
+            self.module.f(-t, y) - self.module.g(-t, y) ** 2 * self.module.score(-t, y)
+        )
         return out.flatten(start_dim=1)
 
     def g(self, t, y):
@@ -185,11 +212,11 @@ class ReverseDiffeqWrapper(Module):
         return out.flatten(start_dim=1)
 
     # --- sample ---
-    def sample_t1_marginal(self, batch_size, tau=1.):
+    def sample_t1_marginal(self, batch_size, tau=1.0):
         return self.module.sample_t1_marginal(batch_size, tau)
 
     @torch.no_grad()
-    def ode_sample(self, batch_size=64, tau=1., t=None, y=None, dt=1e-2):
+    def ode_sample(self, batch_size=64, tau=1.0, t=None, y=None, dt=1e-2):
         self.module.eval()
 
         t = torch.tensor([-self.t1, -self.t0], device=self.device) if t is None else t
@@ -197,11 +224,13 @@ class ReverseDiffeqWrapper(Module):
         return torchdiffeq.odeint(self, y, t, method="rk4", options={"step_size": dt})
 
     @torch.no_grad()
-    def ode_sample_final(self, batch_size=64, tau=1., t=None, y=None, dt=1e-2):
+    def ode_sample_final(self, batch_size=64, tau=1.0, t=None, y=None, dt=1e-2):
         return self.ode_sample(batch_size, tau, t, y, dt)[-1]
 
     @torch.no_grad()
-    def sde_sample(self, batch_size=64, tau=1., t=None, y=None, dt=1e-2, tweedie_correction=True):
+    def sde_sample(
+        self, batch_size=64, tau=1.0, t=None, y=None, dt=1e-2, tweedie_correction=True
+    ):
         self.module.eval()
 
         t = torch.tensor([-self.t1, -self.t0], device=self.device) if t is None else t
@@ -214,11 +243,11 @@ class ReverseDiffeqWrapper(Module):
         return ys
 
     @torch.no_grad()
-    def sde_sample_final(self, batch_size=64, tau=1., t=None, y=None, dt=1e-2):
+    def sde_sample_final(self, batch_size=64, tau=1.0, t=None, y=None, dt=1e-2):
         return self.sde_sample(batch_size, tau, t, y, dt)[-1]
 
     def tweedie_correction(self, t, y, dt):
-        return y + dt ** 2 * self.module.score(t, y)
+        return y + dt**2 * self.module.score(t, y)
 
     @property
     def t0(self):
@@ -243,16 +272,16 @@ def postprocess(x, logit_transform, alpha=0.95, clamp=True):
         x = (x.sigmoid() - alpha) / (1 - 2 * alpha)
     else:
         x = x * 0.5 + 0.5
-    return x.clamp(min=0., max=1.) if clamp else x
+    return x.clamp(min=0.0, max=1.0) if clamp else x
 
 
 def make_loader(
-        root="./data/mnist",
-        train_batch_size=128,
-        shuffle=True,
-        pin_memory=True,
-        num_workers=0,
-        drop_last=True
+    root="./data/mnist",
+    train_batch_size=128,
+    shuffle=True,
+    pin_memory=True,
+    num_workers=0,
+    drop_last=True,
 ):
     """Make a simple loader for training images in MNIST."""
 
@@ -264,26 +293,28 @@ def make_loader(
         return x
 
     train_transform = tv.transforms.Compose([tv.transforms.ToTensor(), dequantize])
-    train_data = tv.datasets.MNIST(root, train=True, transform=train_transform, download=True)
+    train_data = tv.datasets.MNIST(
+        root, train=True, transform=train_transform, download=True
+    )
     train_loader = data.DataLoader(
         train_data,
         batch_size=train_batch_size,
         drop_last=drop_last,
         shuffle=shuffle,
         pin_memory=pin_memory,
-        num_workers=num_workers
+        num_workers=num_workers,
     )
     return train_loader
 
 
 def main(
-        train_dir="./dump/cont_ddpm/",
-        epochs=100,
-        lr=1e-4,
-        batch_size=128,
-        pause_every=1000,
-        tau=1.,
-        logit_transform=True,
+    train_dir="./dump/cont_ddpm/",
+    epochs=100,
+    lr=1e-4,
+    batch_size=128,
+    pause_every=1000,
+    tau=1.0,
+    logit_transform=True,
 ):
     """Train and sample once in a while.
 
@@ -296,15 +327,21 @@ def main(
         tau: The temperature for sampling.
         logit_transform: Applies the typical logit transformation if True.
     """
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Data.
-    train_loader = make_loader(root=os.path.join(train_dir, 'data'), train_batch_size=batch_size)
+    train_loader = make_loader(
+        root=os.path.join(train_dir, "data"), train_batch_size=batch_size
+    )
 
     # Model + optimizer.
     denoiser = unet.Unet(
         input_size=(1, 28, 28),
-        dim_mults=(1, 2, 4,),
+        dim_mults=(
+            1,
+            2,
+            4,
+        ),
         attention_cls=unet.LinearTimeSelfAttention,
     )
     forward = ScoreMatchingSDE(denoiser=denoiser).to(device)
@@ -329,13 +366,17 @@ def main(
             global_step += 1
 
             if global_step % pause_every == 0:
-                logging.warning(f'global_step: {global_step:06d}, loss: {loss:.4f}')
+                logging.warning(f"global_step: {global_step:06d}, loss: {loss:.4f}")
 
-                img_path = os.path.join(train_dir, 'ode_samples', f'global_step_{global_step:07d}.png')
+                img_path = os.path.join(
+                    train_dir, "ode_samples", f"global_step_{global_step:07d}.png"
+                )
                 ode_samples = reverse.ode_sample_final(tau=tau)
                 plot(ode_samples, img_path)
 
-                img_path = os.path.join(train_dir, 'sde_samples', f'global_step_{global_step:07d}.png')
+                img_path = os.path.join(
+                    train_dir, "sde_samples", f"global_step_{global_step:07d}.png"
+                )
                 sde_samples = reverse.sde_sample_final(tau=tau)
                 plot(sde_samples, img_path)
 

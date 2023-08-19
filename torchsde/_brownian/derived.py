@@ -72,8 +72,14 @@ class BrownianPath(brownian_base.BaseBrownian):
         """
         t1 = t0 + 1
         self._w0 = w0
-        self._interval = brownian_interval.BrownianInterval(t0=t0, t1=t1, size=w0.shape, dtype=w0.dtype,
-                                                            device=w0.device, cache_size=None)
+        self._interval = brownian_interval.BrownianInterval(
+            t0=t0,
+            t1=t1,
+            size=w0.shape,
+            dtype=w0.dtype,
+            device=w0.device,
+            cache_size=None,
+        )
         super(BrownianPath, self).__init__()
 
     def __call__(self, t, tb=None, return_U=False, return_A=False):
@@ -119,15 +125,18 @@ class BrownianTree(brownian_base.BaseBrownian):
             [-0.3889]], device='cuda:0')
     """
 
-    def __init__(self, t0: Scalar,
-                 w0: Tensor,
-                 t1: Optional[Scalar] = None,
-                 w1: Optional[Tensor] = None,
-                 entropy: Optional[int] = None,
-                 tol: float = 1e-6,
-                 pool_size: int = 24,
-                 cache_depth: int = 9,
-                 safety: Optional[float] = None):
+    def __init__(
+        self,
+        t0: Scalar,
+        w0: Tensor,
+        t1: Optional[Scalar] = None,
+        w1: Optional[Tensor] = None,
+        entropy: Optional[int] = None,
+        tol: float = 1e-6,
+        pool_size: int = 24,
+        cache_depth: int = 9,
+        safety: Optional[float] = None,
+    ):
         """Initialize the Brownian tree.
 
         The random value generation process exploits the parallel random number paradigm and uses
@@ -152,16 +161,18 @@ class BrownianTree(brownian_base.BaseBrownian):
         else:
             W = w1 - w0
         self._w0 = w0
-        self._interval = brownian_interval.BrownianInterval(t0=t0,
-                                                            t1=t1,
-                                                            size=w0.shape,
-                                                            dtype=w0.dtype,
-                                                            device=w0.device,
-                                                            entropy=entropy,
-                                                            tol=tol,
-                                                            pool_size=pool_size,
-                                                            halfway_tree=True,
-                                                            W=W)
+        self._interval = brownian_interval.BrownianInterval(
+            t0=t0,
+            t1=t1,
+            size=w0.shape,
+            dtype=w0.dtype,
+            device=w0.device,
+            entropy=entropy,
+            tol=tol,
+            pool_size=pool_size,
+            halfway_tree=True,
+            W=W,
+        )
         super(BrownianTree, self).__init__()
 
     def __call__(self, t, tb=None, return_U=False, return_A=False):
@@ -191,15 +202,19 @@ class BrownianTree(brownian_base.BaseBrownian):
         return self._interval.levy_area_approximation
 
 
-def brownian_interval_like(y: Tensor,
-                           t0: Optional[Scalar] = 0.,
-                           t1: Optional[Scalar] = 1.,
-                           size: Optional[Tuple[int, ...]] = None,
-                           dtype: Optional[torch.dtype] = None,
-                           device: Optional[Union[str, torch.device]] = None,
-                           **kwargs):
+def brownian_interval_like(
+    y: Tensor,
+    t0: Optional[Scalar] = 0.0,
+    t1: Optional[Scalar] = 1.0,
+    size: Optional[Tuple[int, ...]] = None,
+    dtype: Optional[torch.dtype] = None,
+    device: Optional[Union[str, torch.device]] = None,
+    **kwargs,
+):
     """Returns a BrownianInterval object with the same size, device, and dtype as a given tensor."""
     size = y.shape if size is None else size
     dtype = y.dtype if dtype is None else dtype
     device = y.device if device is None else device
-    return brownian_interval.BrownianInterval(t0=t0, t1=t1, size=size, dtype=dtype, device=device, **kwargs)
+    return brownian_interval.BrownianInterval(
+        t0=t0, t1=t1, size=size, dtype=dtype, device=device, **kwargs
+    )

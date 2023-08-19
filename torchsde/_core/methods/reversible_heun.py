@@ -81,7 +81,9 @@ class AdjointReversibleHeun(base_solver.BaseSDESolver):
 
     def __init__(self, sde, **kwargs):
         if not isinstance(sde, adjoint_sde.AdjointSDE):
-            raise ValueError(f"{METHODS.adjoint_reversible_heun} can only be used for adjoint_method.")
+            raise ValueError(
+                f"{METHODS.adjoint_reversible_heun} can only be used for adjoint_method."
+            )
         self.strong_order = 1.0 if sde.noise_type == NOISE_TYPES.additive else 0.5
         super(AdjointReversibleHeun, self).__init__(sde=sde, **kwargs)
         self.forward_sde = sde.forward_sde
@@ -89,7 +91,9 @@ class AdjointReversibleHeun(base_solver.BaseSDESolver):
         if self.forward_sde.noise_type == NOISE_TYPES.diagonal:
             self._adjoint_of_prod = lambda tensor1, tensor2: tensor1 * tensor2
         else:
-            self._adjoint_of_prod = lambda tensor1, tensor2: tensor1.unsqueeze(-1) * tensor2.unsqueeze(-2)
+            self._adjoint_of_prod = lambda tensor1, tensor2: tensor1.unsqueeze(
+                -1
+            ) * tensor2.unsqueeze(-2)
 
     def init_extra_solver_state(self, t0, y0):
         # We expect to always be given the extra state from the forward pass.
@@ -101,12 +105,21 @@ class AdjointReversibleHeun(base_solver.BaseSDESolver):
         dW = self.bm(t0, t1)
         half_dt = 0.5 * dt
         half_dW = 0.5 * dW
-        forward_y0, adj_y0, (adj_f0, adj_g0, adj_z0, *adj_params), requires_grad = self.sde.get_state(t0, y0,
-                                                                                                      extra_states=True)
+        (
+            forward_y0,
+            adj_y0,
+            (adj_f0, adj_g0, adj_z0, *adj_params),
+            requires_grad,
+        ) = self.sde.get_state(t0, y0, extra_states=True)
         adj_y0_half_dt = adj_y0 * half_dt
         adj_y0_half_dW = self._adjoint_of_prod(adj_y0, half_dW)
 
-        forward_z1 = 2 * forward_y0 - forward_z0 - forward_f0 * dt - self.forward_sde.prod(forward_g0, dW)
+        forward_z1 = (
+            2 * forward_y0
+            - forward_z0
+            - forward_f0 * dt
+            - self.forward_sde.prod(forward_g0, dW)
+        )
 
         adj_y1 = adj_y0
         adj_f1 = adj_y0_half_dt
@@ -121,24 +134,31 @@ class AdjointReversibleHeun(base_solver.BaseSDESolver):
                 forward_z0 = forward_z0.detach().requires_grad_()
             re_forward_f0, re_forward_g0 = self.forward_sde.f_and_g(-t0, forward_z0)
 
-            vjp_z, *vjp_params = misc.vjp(outputs=(re_forward_f0, re_forward_g0),
-                                          inputs=[forward_z0] + self.sde.params,
-                                          grad_outputs=[adj_f0, adj_g0],
-                                          allow_unused=True,
-                                          retain_graph=True,
-                                          create_graph=requires_grad)
+            vjp_z, *vjp_params = misc.vjp(
+                outputs=(re_forward_f0, re_forward_g0),
+                inputs=[forward_z0] + self.sde.params,
+                grad_outputs=[adj_f0, adj_g0],
+                allow_unused=True,
+                retain_graph=True,
+                create_graph=requires_grad,
+            )
         adj_z0 = adj_z0 + vjp_z
         adj_params = misc.seq_add(adj_params, vjp_params)
 
         forward_f1, forward_g1 = self.forward_sde.f_and_g(-t1, forward_z1)
-        forward_y1 = forward_y0 - (forward_f0 + forward_f1) * half_dt - self.forward_sde.prod(forward_g0 + forward_g1,
-                                                                                              half_dW)
+        forward_y1 = (
+            forward_y0
+            - (forward_f0 + forward_f1) * half_dt
+            - self.forward_sde.prod(forward_g0 + forward_g1, half_dW)
+        )
 
         adj_y1 = adj_y1 + 2 * adj_z0
         adj_z1 = -adj_z0
         adj_f1 = adj_f1 + adj_z0 * dt
         adj_g1 = adj_g1 + self._adjoint_of_prod(adj_z0, dW)
 
-        y1 = misc.flatten([forward_y1, adj_y1, adj_f1, adj_g1, adj_z1] + adj_params).unsqueeze(0)
+        y1 = misc.flatten(
+            [forward_y1, adj_y1, adj_f1, adj_g1, adj_z1] + adj_params
+        ).unsqueeze(0)
 
         return y1, (forward_f1, forward_g1, forward_z1)

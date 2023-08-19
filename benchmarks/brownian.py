@@ -41,18 +41,20 @@ def _time_query(bm, ts):
     return time.perf_counter() - now
 
 
-def _compare(w0, ts, msg=''):
+def _compare(w0, ts, msg=""):
     bm = torchsde.BrownianPath(t0=t0, w0=w0)
     bp_py_time = _time_query(bm, ts)
-    logging.warning(f'{msg} (torchsde.BrownianPath): {bp_py_time:.4f}')
+    logging.warning(f"{msg} (torchsde.BrownianPath): {bp_py_time:.4f}")
 
     bm = torchsde.BrownianTree(t0=t0, t1=t1, w0=w0, tol=1e-5)
     bt_py_time = _time_query(bm, ts)
-    logging.warning(f'{msg} (torchsde.BrownianTree): {bt_py_time:.4f}')
+    logging.warning(f"{msg} (torchsde.BrownianTree): {bt_py_time:.4f}")
 
-    bm = torchsde.BrownianInterval(t0=t0, t1=t1, size=w0.shape, dtype=w0.dtype, device=w0.device)
+    bm = torchsde.BrownianInterval(
+        t0=t0, t1=t1, size=w0.shape, dtype=w0.dtype, device=w0.device
+    )
     bi_py_time = _time_query(bm, ts)
-    logging.warning(f'{msg} (torchsde.BrownianInterval): {bi_py_time:.4f}')
+    logging.warning(f"{msg} (torchsde.BrownianInterval): {bi_py_time:.4f}")
 
     return bp_py_time, bt_py_time, bi_py_time
 
@@ -61,34 +63,61 @@ def sequential_access():
     ts = torch.linspace(t0, t1, steps=steps)
 
     w0 = torch.zeros(small_batch_size, small_d).to(device)
-    bp_py_time_s, bt_py_time_s, bi_py_time_s = _compare(w0, ts, msg='small sequential access')
+    bp_py_time_s, bt_py_time_s, bi_py_time_s = _compare(
+        w0, ts, msg="small sequential access"
+    )
 
     w0 = torch.zeros(large_batch_size, large_d).to(device)
-    bp_py_time_l, bt_py_time_l, bi_py_time_l = _compare(w0, ts, msg='large sequential access')
+    bp_py_time_l, bt_py_time_l, bi_py_time_l = _compare(
+        w0, ts, msg="large sequential access"
+    )
 
     w0 = torch.zeros(huge_batch_size, huge_d).to(device)
-    bp_py_time_h, bt_py_time_h, bi_py_time_h = _compare(w0, ts, msg="huge sequential access")
+    bp_py_time_h, bt_py_time_h, bi_py_time_h = _compare(
+        w0, ts, msg="huge sequential access"
+    )
 
-    img_path = os.path.join('.', 'benchmarks', f'plots-{device}', 'sequential_access.png')
+    img_path = os.path.join(
+        ".", "benchmarks", f"plots-{device}", "sequential_access.png"
+    )
     if not os.path.exists(os.path.dirname(img_path)):
         os.makedirs(os.path.dirname(img_path))
 
-    xaxis = [small_batch_size * small_d, large_batch_size * large_batch_size, huge_batch_size * huge_d]
+    xaxis = [
+        small_batch_size * small_d,
+        large_batch_size * large_batch_size,
+        huge_batch_size * huge_d,
+    ]
 
     utils.swiss_knife_plotter(
         img_path,
         plots=[
-            {'x': xaxis, 'y': [bp_py_time_s, bp_py_time_l, bp_py_time_h], 'label': 'bp_py', 'marker': 'x'},
-            {'x': xaxis, 'y': [bt_py_time_s, bt_py_time_l, bt_py_time_h], 'label': 'bt_py', 'marker': 'x'},
-            {'x': xaxis, 'y': [bi_py_time_s, bi_py_time_l, bi_py_time_h], 'label': 'bi_py', 'marker': 'x'},
+            {
+                "x": xaxis,
+                "y": [bp_py_time_s, bp_py_time_l, bp_py_time_h],
+                "label": "bp_py",
+                "marker": "x",
+            },
+            {
+                "x": xaxis,
+                "y": [bt_py_time_s, bt_py_time_l, bt_py_time_h],
+                "label": "bt_py",
+                "marker": "x",
+            },
+            {
+                "x": xaxis,
+                "y": [bi_py_time_s, bi_py_time_l, bi_py_time_h],
+                "label": "bi_py",
+                "marker": "x",
+            },
         ],
         options={
-            'xscale': 'log',
-            'yscale': 'log',
-            'xlabel': 'size of tensor',
-            'ylabel': f'wall time on {device}',
-            'title': 'sequential access'
-        }
+            "xscale": "log",
+            "yscale": "log",
+            "xlabel": "size of tensor",
+            "ylabel": f"wall time on {device}",
+            "title": "sequential access",
+        },
     )
 
 
@@ -97,34 +126,59 @@ def random_access():
     ts = torch.empty(steps).uniform_(t0, t1, generator=generator)
 
     w0 = torch.zeros(small_batch_size, small_d).to(device)
-    bp_py_time_s, bt_py_time_s, bi_py_time_s = _compare(w0, ts, msg='small random access')
+    bp_py_time_s, bt_py_time_s, bi_py_time_s = _compare(
+        w0, ts, msg="small random access"
+    )
 
     w0 = torch.zeros(large_batch_size, large_d).to(device)
-    bp_py_time_l, bt_py_time_l, bi_py_time_l = _compare(w0, ts, msg='large random access')
+    bp_py_time_l, bt_py_time_l, bi_py_time_l = _compare(
+        w0, ts, msg="large random access"
+    )
 
     w0 = torch.zeros(huge_batch_size, huge_d).to(device)
-    bp_py_time_h, bt_py_time_h, bi_py_time_h = _compare(w0, ts, msg="huge random access")
+    bp_py_time_h, bt_py_time_h, bi_py_time_h = _compare(
+        w0, ts, msg="huge random access"
+    )
 
-    img_path = os.path.join('.', 'benchmarks', f'plots-{device}', 'random_access.png')
+    img_path = os.path.join(".", "benchmarks", f"plots-{device}", "random_access.png")
     if not os.path.exists(os.path.dirname(img_path)):
         os.makedirs(os.path.dirname(img_path))
 
-    xaxis = [small_batch_size * small_d, large_batch_size * large_batch_size, huge_batch_size * huge_d]
+    xaxis = [
+        small_batch_size * small_d,
+        large_batch_size * large_batch_size,
+        huge_batch_size * huge_d,
+    ]
 
     utils.swiss_knife_plotter(
         img_path,
         plots=[
-            {'x': xaxis, 'y': [bp_py_time_s, bp_py_time_l, bp_py_time_h], 'label': 'bp_py', 'marker': 'x'},
-            {'x': xaxis, 'y': [bt_py_time_s, bt_py_time_l, bt_py_time_h], 'label': 'bt_py', 'marker': 'x'},
-            {'x': xaxis, 'y': [bi_py_time_s, bi_py_time_l, bi_py_time_h], 'label': 'bi_py', 'marker': 'x'},
+            {
+                "x": xaxis,
+                "y": [bp_py_time_s, bp_py_time_l, bp_py_time_h],
+                "label": "bp_py",
+                "marker": "x",
+            },
+            {
+                "x": xaxis,
+                "y": [bt_py_time_s, bt_py_time_l, bt_py_time_h],
+                "label": "bt_py",
+                "marker": "x",
+            },
+            {
+                "x": xaxis,
+                "y": [bi_py_time_s, bi_py_time_l, bi_py_time_h],
+                "label": "bi_py",
+                "marker": "x",
+            },
         ],
         options={
-            'xscale': 'log',
-            'yscale': 'log',
-            'xlabel': 'size of tensor',
-            'ylabel': f'wall time on {device}',
-            'title': 'random access'
-        }
+            "xscale": "log",
+            "yscale": "log",
+            "xlabel": "size of tensor",
+            "ylabel": f"wall time on {device}",
+            "title": "random access",
+        },
     )
 
 
@@ -142,7 +196,7 @@ class SDE(torchsde.SDEIto):
 def _time_sdeint(sde, y0, ts, bm):
     now = time.perf_counter()
     with torch.no_grad():
-        torchsde.sdeint(sde, y0, ts, bm, method='euler')
+        torchsde.sdeint(sde, y0, ts, bm, method="euler")
     return time.perf_counter() - now
 
 
@@ -150,7 +204,7 @@ def _time_sdeint_bp(sde, y0, ts, bm):
     now = time.perf_counter()
     sde.zero_grad()
     y0 = y0.clone().requires_grad_(True)
-    ys = torchsde.sdeint(sde, y0, ts, bm, method='euler')
+    ys = torchsde.sdeint(sde, y0, ts, bm, method="euler")
     ys.sum().backward()
     return time.perf_counter() - now
 
@@ -159,23 +213,25 @@ def _time_sdeint_adjoint(sde, y0, ts, bm):
     now = time.perf_counter()
     sde.zero_grad()
     y0 = y0.clone().requires_grad_(True)
-    ys = torchsde.sdeint_adjoint(sde, y0, ts, bm, method='euler')
+    ys = torchsde.sdeint_adjoint(sde, y0, ts, bm, method="euler")
     ys.sum().backward()
     return time.perf_counter() - now
 
 
-def _compare_sdeint(w0, sde, y0, ts, func, msg=''):
+def _compare_sdeint(w0, sde, y0, ts, func, msg=""):
     bm = torchsde.BrownianPath(t0=t0, w0=w0)
     bp_py_time = func(sde, y0, ts, bm)
-    logging.warning(f'{msg} (torchsde.BrownianPath): {bp_py_time:.4f}')
+    logging.warning(f"{msg} (torchsde.BrownianPath): {bp_py_time:.4f}")
 
     bm = torchsde.BrownianTree(t0=t0, t1=t1, w0=w0, tol=1e-5)
     bt_py_time = func(sde, y0, ts, bm)
-    logging.warning(f'{msg} (torchsde.BrownianTree): {bt_py_time:.4f}')
+    logging.warning(f"{msg} (torchsde.BrownianTree): {bt_py_time:.4f}")
 
-    bm = torchsde.BrownianInterval(t0=t0, t1=t1, size=w0.shape, dtype=w0.dtype, device=w0.device)
+    bm = torchsde.BrownianInterval(
+        t0=t0, t1=t1, size=w0.shape, dtype=w0.dtype, device=w0.device
+    )
     bi_py_time = func(sde, y0, ts, bm)
-    logging.warning(f'{msg} (torchsde.BrownianInterval): {bi_py_time:.4f}')
+    logging.warning(f"{msg} (torchsde.BrownianInterval): {bi_py_time:.4f}")
 
     return bp_py_time, bt_py_time, bi_py_time
 
@@ -185,40 +241,65 @@ def solver_access(func=_time_sdeint):
     sde = SDE().to(device)
 
     y0 = w0 = torch.zeros(small_batch_size, small_d).to(device)
-    bp_py_time_s, bt_py_time_s, bi_py_time_s = _compare_sdeint(w0, sde, y0, ts, func, msg='small')
+    bp_py_time_s, bt_py_time_s, bi_py_time_s = _compare_sdeint(
+        w0, sde, y0, ts, func, msg="small"
+    )
 
     y0 = w0 = torch.zeros(large_batch_size, large_d).to(device)
-    bp_py_time_l, bt_py_time_l, bi_py_time_l = _compare_sdeint(w0, sde, y0, ts, func, msg='large')
+    bp_py_time_l, bt_py_time_l, bi_py_time_l = _compare_sdeint(
+        w0, sde, y0, ts, func, msg="large"
+    )
 
     y0 = w0 = torch.zeros(huge_batch_size, huge_d).to(device)
-    bp_py_time_h, bt_py_time_h, bi_py_time_h = _compare_sdeint(w0, sde, y0, ts, func, msg='huge')
+    bp_py_time_h, bt_py_time_h, bi_py_time_h = _compare_sdeint(
+        w0, sde, y0, ts, func, msg="huge"
+    )
 
     name = {
-        _time_sdeint: 'sdeint',
-        _time_sdeint_bp: 'sdeint-backprop-solver',
-        _time_sdeint_adjoint: 'sdeint-backprop-adjoint'
+        _time_sdeint: "sdeint",
+        _time_sdeint_bp: "sdeint-backprop-solver",
+        _time_sdeint_adjoint: "sdeint-backprop-adjoint",
     }[func]
 
-    img_path = os.path.join('.', 'benchmarks', f'plots-{device}', f'{name}.png')
+    img_path = os.path.join(".", "benchmarks", f"plots-{device}", f"{name}.png")
     if not os.path.exists(os.path.dirname(img_path)):
         os.makedirs(os.path.dirname(img_path))
 
-    xaxis = [small_batch_size * small_d, large_batch_size * large_batch_size, huge_batch_size * huge_d]
+    xaxis = [
+        small_batch_size * small_d,
+        large_batch_size * large_batch_size,
+        huge_batch_size * huge_d,
+    ]
 
     utils.swiss_knife_plotter(
         img_path,
         plots=[
-            {'x': xaxis, 'y': [bp_py_time_s, bp_py_time_l, bp_py_time_h], 'label': 'bp_py', 'marker': 'x'},
-            {'x': xaxis, 'y': [bt_py_time_s, bt_py_time_l, bt_py_time_h], 'label': 'bt_py', 'marker': 'x'},
-            {'x': xaxis, 'y': [bi_py_time_s, bi_py_time_l, bi_py_time_h], 'label': 'bi_py', 'marker': 'x'},
+            {
+                "x": xaxis,
+                "y": [bp_py_time_s, bp_py_time_l, bp_py_time_h],
+                "label": "bp_py",
+                "marker": "x",
+            },
+            {
+                "x": xaxis,
+                "y": [bt_py_time_s, bt_py_time_l, bt_py_time_h],
+                "label": "bt_py",
+                "marker": "x",
+            },
+            {
+                "x": xaxis,
+                "y": [bi_py_time_s, bi_py_time_l, bi_py_time_h],
+                "label": "bi_py",
+                "marker": "x",
+            },
         ],
         options={
-            'xscale': 'log',
-            'yscale': 'log',
-            'xlabel': 'size of tensor',
-            'ylabel': f'wall time on {device}',
-            'title': name
-        }
+            "xscale": "log",
+            "yscale": "log",
+            "xlabel": "size of tensor",
+            "ylabel": f"wall time on {device}",
+            "title": name,
+        },
     )
 
 
@@ -233,12 +314,14 @@ def main():
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--no-gpu', action='store_true')
-    parser.add_argument('--debug', action='store_true')
-    parser.add_argument('--seed', type=int, default=0)
+    parser.add_argument("--no-gpu", action="store_true")
+    parser.add_argument("--debug", action="store_true")
+    parser.add_argument("--seed", type=int, default=0)
 
     args = parser.parse_args()
-    device = torch.device('cuda' if torch.cuda.is_available() and not args.no_gpu else 'cpu')
+    device = torch.device(
+        "cuda" if torch.cuda.is_available() and not args.no_gpu else "cpu"
+    )
 
     npr.seed(args.seed)
     torch.manual_seed(args.seed)

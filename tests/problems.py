@@ -40,12 +40,14 @@ class ExDiagonal(BaseSDE):
     noise_type = NOISE_TYPES.diagonal
 
     def __init__(self, d, sde_type=SDE_TYPES.ito, **kwargs):
-        super(ExDiagonal, self).__init__(sde_type=sde_type, noise_type=ExDiagonal.noise_type)
+        super(ExDiagonal, self).__init__(
+            sde_type=sde_type, noise_type=ExDiagonal.noise_type
+        )
         self._nfe = 0
 
         # Use non-exploding initialization.
         sigma = torch.sigmoid(torch.randn(d))
-        mu = -sigma ** 2 - torch.sigmoid(torch.randn(d))
+        mu = -(sigma**2) - torch.sigmoid(torch.randn(d))
         self.mu = nn.Parameter(mu, requires_grad=True)
         self.sigma = nn.Parameter(sigma, requires_grad=True)
 
@@ -57,7 +59,7 @@ class ExDiagonal(BaseSDE):
 
     def f_stratonovich(self, t, y):
         self._nfe += 1
-        return self.mu * y - .5 * (self.sigma ** 2) * y
+        return self.mu * y - 0.5 * (self.sigma**2) * y
 
     def g(self, t, y):
         self._nfe += 1
@@ -76,7 +78,9 @@ class ExScalar(BaseSDE):
     noise_type = NOISE_TYPES.scalar
 
     def __init__(self, d, sde_type=SDE_TYPES.ito, **kwargs):
-        super(ExScalar, self).__init__(sde_type=sde_type, noise_type=ExScalar.noise_type)
+        super(ExScalar, self).__init__(
+            sde_type=sde_type, noise_type=ExScalar.noise_type
+        )
         self._nfe = 0
         self.p = nn.Parameter(torch.sigmoid(torch.randn(d)), requires_grad=True)
 
@@ -84,7 +88,7 @@ class ExScalar(BaseSDE):
 
     def f_ito(self, t, y):
         self._nfe += 1
-        return -self.p ** 2. * torch.sin(y) * torch.cos(y) ** 3.
+        return -self.p**2.0 * torch.sin(y) * torch.cos(y) ** 3.0
 
     def f_stratonovich(self, t, y):
         self._nfe += 1
@@ -107,7 +111,9 @@ class ExAdditive(BaseSDE):
     noise_type = NOISE_TYPES.additive
 
     def __init__(self, d, m, sde_type=SDE_TYPES.ito, **kwargs):
-        super(ExAdditive, self).__init__(sde_type=sde_type, noise_type=ExAdditive.noise_type)
+        super(ExAdditive, self).__init__(
+            sde_type=sde_type, noise_type=ExAdditive.noise_type
+        )
         self._nfe = 0
         self.m = m
 
@@ -116,12 +122,14 @@ class ExAdditive(BaseSDE):
 
     def f(self, t, y):
         self._nfe += 1
-        return self.b / torch.sqrt(1. + t) - y / (2. + 2. * t)
+        return self.b / torch.sqrt(1.0 + t) - y / (2.0 + 2.0 * t)
 
     def g(self, t, y):
         self._nfe += 1
-        fill_value = self.a * self.b / torch.sqrt(1. + t)
-        return fill_value.unsqueeze(dim=0).unsqueeze(dim=-1).repeat(y.size(0), 1, self.m)
+        fill_value = self.a * self.b / torch.sqrt(1.0 + t)
+        return (
+            fill_value.unsqueeze(dim=0).unsqueeze(dim=-1).repeat(y.size(0), 1, self.m)
+        )
 
     def h(self, t, y):
         self._nfe += 1
@@ -136,18 +144,13 @@ class NeuralDiagonal(BaseSDE):
     noise_type = NOISE_TYPES.diagonal
 
     def __init__(self, d, sde_type=SDE_TYPES.ito, **kwargs):
-        super(NeuralDiagonal, self).__init__(sde_type=sde_type, noise_type=NeuralDiagonal.noise_type)
-
-        self.f_net = nn.Sequential(
-            nn.Linear(d + 1, 8),
-            nn.Softplus(),
-            nn.Linear(8, d)
+        super(NeuralDiagonal, self).__init__(
+            sde_type=sde_type, noise_type=NeuralDiagonal.noise_type
         )
+
+        self.f_net = nn.Sequential(nn.Linear(d + 1, 8), nn.Softplus(), nn.Linear(8, d))
         self.g_net = nn.Sequential(
-            nn.Linear(d + 1, 8),
-            nn.Softplus(),
-            nn.Linear(8, d),
-            nn.Sigmoid()
+            nn.Linear(d + 1, 8), nn.Softplus(), nn.Linear(8, d), nn.Sigmoid()
         )
 
     def f(self, t, y):
@@ -156,7 +159,9 @@ class NeuralDiagonal(BaseSDE):
 
     def g(self, t, y):
         ty = torch.cat([t.expand(y.size(0), 1), y], dim=1)
-        return 0.1 * self.g_net(ty)  # small noise makes passing adjoint tests easier/possible
+        return 0.1 * self.g_net(
+            ty
+        )  # small noise makes passing adjoint tests easier/possible
 
     def h(self, t, y):
         return torch.zeros_like(y)
@@ -166,18 +171,13 @@ class NeuralScalar(BaseSDE):
     noise_type = NOISE_TYPES.scalar
 
     def __init__(self, d, sde_type=SDE_TYPES.ito, **kwargs):
-        super(NeuralScalar, self).__init__(sde_type=sde_type, noise_type=NeuralScalar.noise_type)
-
-        self.f_net = nn.Sequential(
-            nn.Linear(d + 1, 8),
-            nn.Softplus(),
-            nn.Linear(8, d)
+        super(NeuralScalar, self).__init__(
+            sde_type=sde_type, noise_type=NeuralScalar.noise_type
         )
+
+        self.f_net = nn.Sequential(nn.Linear(d + 1, 8), nn.Softplus(), nn.Linear(8, d))
         self.g_net = nn.Sequential(
-            nn.Linear(d + 1, 8),
-            nn.Softplus(),
-            nn.Linear(8, d),
-            nn.Sigmoid()
+            nn.Linear(d + 1, 8), nn.Softplus(), nn.Linear(8, d), nn.Sigmoid()
         )
 
     def f(self, t, y):
@@ -186,7 +186,9 @@ class NeuralScalar(BaseSDE):
 
     def g(self, t, y):
         ty = torch.cat([t.expand(y.size(0), 1), y], dim=1)
-        return 0.1 * self.g_net(ty).unsqueeze(-1)  # small noise makes passing adjoint tests easier/possible
+        return 0.1 * self.g_net(ty).unsqueeze(
+            -1
+        )  # small noise makes passing adjoint tests easier/possible
 
     def h(self, t, y):
         return torch.zeros_like(y)
@@ -196,20 +198,15 @@ class NeuralAdditive(BaseSDE):
     noise_type = NOISE_TYPES.additive
 
     def __init__(self, d, m, sde_type=SDE_TYPES.ito, **kwargs):
-        super(NeuralAdditive, self).__init__(sde_type=sde_type, noise_type=NeuralAdditive.noise_type)
+        super(NeuralAdditive, self).__init__(
+            sde_type=sde_type, noise_type=NeuralAdditive.noise_type
+        )
         self.d = d
         self.m = m
 
-        self.f_net = nn.Sequential(
-            nn.Linear(d + 1, 8),
-            nn.Softplus(),
-            nn.Linear(8, d)
-        )
+        self.f_net = nn.Sequential(nn.Linear(d + 1, 8), nn.Softplus(), nn.Linear(8, d))
         self.g_net = nn.Sequential(
-            nn.Linear(1, 8),
-            nn.Softplus(),
-            nn.Linear(8, d * m),
-            nn.Sigmoid()
+            nn.Linear(1, 8), nn.Softplus(), nn.Linear(8, d * m), nn.Sigmoid()
         )
 
     def f(self, t, y):
@@ -227,20 +224,15 @@ class NeuralGeneral(BaseSDE):
     noise_type = NOISE_TYPES.general
 
     def __init__(self, d, m, sde_type=SDE_TYPES.ito, **kwargs):
-        super(NeuralGeneral, self).__init__(sde_type=sde_type, noise_type=NeuralGeneral.noise_type)
+        super(NeuralGeneral, self).__init__(
+            sde_type=sde_type, noise_type=NeuralGeneral.noise_type
+        )
         self.d = d
         self.m = m
 
-        self.f_net = nn.Sequential(
-            nn.Linear(d + 1, 8),
-            nn.Softplus(),
-            nn.Linear(8, d)
-        )
+        self.f_net = nn.Sequential(nn.Linear(d + 1, 8), nn.Softplus(), nn.Linear(8, d))
         self.g_net = nn.Sequential(
-            nn.Linear(d + 1, 8),
-            nn.Softplus(),
-            nn.Linear(8, d * m),
-            nn.Sigmoid()
+            nn.Linear(d + 1, 8), nn.Softplus(), nn.Linear(8, d * m), nn.Sigmoid()
         )
 
     def f(self, t, y):
@@ -264,11 +256,19 @@ class BasicSDE1(SDEIto):
         self.unused_param2 = nn.Parameter(torch.randn(1, d), requires_grad=True)
 
     def f(self, t, y):
-        return self.shared_param * torch.sin(y) * 0.2 + torch.cos(y ** 2.) * 0.1 + torch.cos(t) + self.no_grad_param * y
+        return (
+            self.shared_param * torch.sin(y) * 0.2
+            + torch.cos(y**2.0) * 0.1
+            + torch.cos(t)
+            + self.no_grad_param * y
+        )
 
     def g(self, t, y):
-        return torch.sigmoid(self.shared_param * torch.cos(y) * .3 + torch.sin(t)) + torch.sigmoid(
-            self.no_grad_param * y) + 0.1
+        return (
+            torch.sigmoid(self.shared_param * torch.cos(y) * 0.3 + torch.sin(t))
+            + torch.sigmoid(self.no_grad_param * y)
+            + 0.1
+        )
 
     def h(self, t, y):
         return torch.sigmoid(y)
@@ -286,7 +286,12 @@ class BasicSDE2(SDEIto):
         return self.shared_param * 0.2 + self.no_grad_param + torch.zeros_like(y)
 
     def g(self, t, y):
-        return torch.sigmoid(self.shared_param * .3) + torch.sigmoid(self.no_grad_param) + torch.zeros_like(y) + 0.1
+        return (
+            torch.sigmoid(self.shared_param * 0.3)
+            + torch.sigmoid(self.no_grad_param)
+            + torch.zeros_like(y)
+            + 0.1
+        )
 
     def h(self, t, y):
         return torch.sigmoid(y)
@@ -304,7 +309,12 @@ class BasicSDE3(SDEIto):
         return self.shared_param * 0.2 + self.no_grad_param + torch.zeros_like(y)
 
     def g(self, t, y):
-        return torch.sigmoid(self.shared_param * .3) + torch.sigmoid(self.no_grad_param) + torch.zeros_like(y) + 0.1
+        return (
+            torch.sigmoid(self.shared_param * 0.3)
+            + torch.sigmoid(self.no_grad_param)
+            + torch.zeros_like(y)
+            + 0.1
+        )
 
     def h(self, t, y):
         return torch.sigmoid(y)
@@ -354,12 +364,12 @@ class CustomNamesSDELogqp(SDEIto):
 
 
 class FGSDE(torch.nn.Module):
-    noise_type = 'general'
+    noise_type = "general"
 
     def __init__(self, sde_type, vector):
         super(FGSDE, self).__init__()
         self.sde_type = sde_type
-        self.register_buffer('vector', vector)
+        self.register_buffer("vector", vector)
 
     def f(self, t, y):
         return -y
@@ -369,66 +379,72 @@ class FGSDE(torch.nn.Module):
 
 
 class FAndGSDE(torch.nn.Module):
-    noise_type = 'general'
+    noise_type = "general"
 
     def __init__(self, sde_type, vector):
         super(FAndGSDE, self).__init__()
         self.sde_type = sde_type
-        self.register_buffer('vector', vector)
+        self.register_buffer("vector", vector)
 
     def f_and_g(self, t, y):
         return -y, y.unsqueeze(-1).sigmoid() * self.vector
 
 
 class GProdSDE(torch.nn.Module):
-    noise_type = 'general'
+    noise_type = "general"
 
     def __init__(self, sde_type, vector):
         super(GProdSDE, self).__init__()
         self.sde_type = sde_type
-        self.register_buffer('vector', vector)
+        self.register_buffer("vector", vector)
 
     def f(self, t, y):
         return -y
 
     def g_prod(self, t, y, v):
-        return (y.unsqueeze(-1).sigmoid() * self.vector).bmm(v.unsqueeze(-1)).squeeze(-1)
+        return (
+            (y.unsqueeze(-1).sigmoid() * self.vector).bmm(v.unsqueeze(-1)).squeeze(-1)
+        )
 
 
 class FAndGProdSDE(torch.nn.Module):
-    noise_type = 'general'
+    noise_type = "general"
 
     def __init__(self, sde_type, vector):
         super(FAndGProdSDE, self).__init__()
         self.sde_type = sde_type
-        self.register_buffer('vector', vector)
+        self.register_buffer("vector", vector)
 
     def f_and_g_prod(self, t, y, v):
-        return -y, (y.unsqueeze(-1).sigmoid() * self.vector).bmm(v.unsqueeze(-1)).squeeze(-1)
+        return -y, (y.unsqueeze(-1).sigmoid() * self.vector).bmm(
+            v.unsqueeze(-1)
+        ).squeeze(-1)
 
 
 class FAndGGProdSDE1(torch.nn.Module):
-    noise_type = 'general'
+    noise_type = "general"
 
     def __init__(self, sde_type, vector):
         super(FAndGGProdSDE1, self).__init__()
         self.sde_type = sde_type
-        self.register_buffer('vector', vector)
+        self.register_buffer("vector", vector)
 
     def f_and_g(self, t, y):
         return -y, y.unsqueeze(-1).sigmoid() * self.vector
 
     def g_prod(self, t, y, v):
-        return (y.unsqueeze(-1).sigmoid() * self.vector).bmm(v.unsqueeze(-1)).squeeze(-1)
+        return (
+            (y.unsqueeze(-1).sigmoid() * self.vector).bmm(v.unsqueeze(-1)).squeeze(-1)
+        )
 
 
 class FAndGGProdSDE2(torch.nn.Module):
-    noise_type = 'general'
+    noise_type = "general"
 
     def __init__(self, sde_type, vector):
         super(FAndGGProdSDE2, self).__init__()
         self.sde_type = sde_type
-        self.register_buffer('vector', vector)
+        self.register_buffer("vector", vector)
 
     def f(self, t, y):
         return -y
@@ -437,4 +453,6 @@ class FAndGGProdSDE2(torch.nn.Module):
         return -y, y.unsqueeze(-1).sigmoid() * self.vector
 
     def g_prod(self, t, y, v):
-        return (y.unsqueeze(-1).sigmoid() * self.vector).bmm(v.unsqueeze(-1)).squeeze(-1)
+        return (
+            (y.unsqueeze(-1).sigmoid() * self.vector).bmm(v.unsqueeze(-1)).squeeze(-1)
+        )

@@ -35,26 +35,37 @@ class BaseSDESolver(metaclass=better_abc.ABCMeta):
     noise_types = better_abc.abstract_attribute()
     levy_area_approximations = better_abc.abstract_attribute()
 
-    def __init__(self,
-                 sde: BaseSDE,
-                 bm: BaseBrownian,
-                 dt: Scalar,
-                 adaptive: bool,
-                 rtol: Scalar,
-                 atol: Scalar,
-                 dt_min: Scalar,
-                 options: Dict,
-                 **kwargs):
+    def __init__(
+        self,
+        sde: BaseSDE,
+        bm: BaseBrownian,
+        dt: Scalar,
+        adaptive: bool,
+        rtol: Scalar,
+        atol: Scalar,
+        dt_min: Scalar,
+        options: Dict,
+        **kwargs,
+    ):
         super(BaseSDESolver, self).__init__(**kwargs)
         if sde.sde_type != self.sde_type:
-            raise ValueError(f"SDE is of type {sde.sde_type} but solver is for type {self.sde_type}")
+            raise ValueError(
+                f"SDE is of type {sde.sde_type} but solver is for type {self.sde_type}"
+            )
         if sde.noise_type not in self.noise_types:
-            raise ValueError(f"SDE has noise type {sde.noise_type} but solver only supports noise types "
-                             f"{self.noise_types}")
+            raise ValueError(
+                f"SDE has noise type {sde.noise_type} but solver only supports noise types "
+                f"{self.noise_types}"
+            )
         if bm.levy_area_approximation not in self.levy_area_approximations:
-            raise ValueError(f"SDE solver requires one of {self.levy_area_approximations} set as the "
-                             f"`levy_area_approximation` on the Brownian motion.")
-        if sde.noise_type == NOISE_TYPES.scalar and torch.Size(bm.shape[1:]).numel() != 1:  # noqa
+            raise ValueError(
+                f"SDE solver requires one of {self.levy_area_approximations} set as the "
+                f"`levy_area_approximation` on the Brownian motion."
+            )
+        if (
+            sde.noise_type == NOISE_TYPES.scalar
+            and torch.Size(bm.shape[1:]).numel() != 1
+        ):  # noqa
             raise ValueError("The Brownian motion for scalar SDEs must of dimension 1.")
 
         self.sde = sde
@@ -73,7 +84,9 @@ class BaseSDESolver(metaclass=better_abc.ABCMeta):
         return ()
 
     @abc.abstractmethod
-    def step(self, t0: Scalar, t1: Scalar, y0: Tensor, extra0: Tensors) -> Tuple[Tensor, Tensors]:
+    def step(
+        self, t0: Scalar, t1: Scalar, y0: Tensor, extra0: Tensors
+    ) -> Tuple[Tensor, Tensors]:
         """Propose a step with step size from time t to time next_t, with
          current state y.
 
@@ -89,7 +102,9 @@ class BaseSDESolver(metaclass=better_abc.ABCMeta):
         """
         raise NotImplementedError
 
-    def integrate(self, y0: Tensor, ts: Tensor, extra0: Tensors) -> Tuple[Tensor, Tensors]:
+    def integrate(
+        self, y0: Tensor, ts: Tensor, extra0: Tensors
+    ) -> Tuple[Tensor, Tensors]:
         """Integrate along trajectory.
 
         Args:
@@ -119,20 +134,31 @@ class BaseSDESolver(metaclass=better_abc.ABCMeta):
                     next_y_full, _ = self.step(curr_t, next_t, curr_y, curr_extra)
                     # Take 2 half steps.
                     midpoint_t = 0.5 * (curr_t + next_t)
-                    midpoint_y, midpoint_extra = self.step(curr_t, midpoint_t, curr_y, curr_extra)
-                    next_y, next_extra = self.step(midpoint_t, next_t, midpoint_y, midpoint_extra)
+                    midpoint_y, midpoint_extra = self.step(
+                        curr_t, midpoint_t, curr_y, curr_extra
+                    )
+                    next_y, next_extra = self.step(
+                        midpoint_t, next_t, midpoint_y, midpoint_extra
+                    )
 
                     # Estimate error based on difference between 1 full step and 2 half steps.
                     with torch.no_grad():
-                        error_estimate = adaptive_stepping.compute_error(next_y_full, next_y, self.rtol, self.atol)
-                        step_size, prev_error_ratio = adaptive_stepping.update_step_size(
+                        error_estimate = adaptive_stepping.compute_error(
+                            next_y_full, next_y, self.rtol, self.atol
+                        )
+                        (
+                            step_size,
+                            prev_error_ratio,
+                        ) = adaptive_stepping.update_step_size(
                             error_estimate=error_estimate,
                             prev_step_size=step_size,
-                            prev_error_ratio=prev_error_ratio
+                            prev_error_ratio=prev_error_ratio,
                         )
 
                     if step_size < self.dt_min:
-                        warnings.warn("Hitting minimum allowed step size in adaptive time-stepping.")
+                        warnings.warn(
+                            "Hitting minimum allowed step size in adaptive time-stepping."
+                        )
                         step_size = self.dt_min
                         prev_error_ratio = None
 
@@ -144,6 +170,10 @@ class BaseSDESolver(metaclass=better_abc.ABCMeta):
                     prev_t, prev_y = curr_t, curr_y
                     curr_y, curr_extra = self.step(curr_t, next_t, curr_y, curr_extra)
                     curr_t = next_t
-            ys.append(interp.linear_interp(t0=prev_t, y0=prev_y, t1=curr_t, y1=curr_y, t=out_t))
+            ys.append(
+                interp.linear_interp(
+                    t0=prev_t, y0=prev_y, t1=curr_t, y1=curr_y, t=out_t
+                )
+            )
 
         return torch.stack(ys, dim=0), curr_extra

@@ -43,16 +43,18 @@ def run_torch(ks=(0, 1, 2, 5, 6, 7, 8, 9, 10, 11, 12)):
 
         t_all = t_con + t_query
         t_alls.append(t_all)
-        logging.warning(f'k={k}, t_con={t_con:.4f}, t_query={t_query:.4f}, t_all={t_all:.4f}')
+        logging.warning(
+            f"k={k}, t_con={t_con:.4f}, t_query={t_query:.4f}, t_all={t_all:.4f}"
+        )
 
-    img_path = os.path.join('.', 'diagnostics', 'plots', 'profile_btree.png')
+    img_path = os.path.join(".", "diagnostics", "plots", "profile_btree.png")
     plt.figure()
-    plt.plot(ks, t_cons, label='cons')
-    plt.plot(ks, t_queries, label='queries')
-    plt.plot(ks, t_alls, label='all')
-    plt.title(f'b={b}, d={d}, repetitions={reps}, device={w0.device}')
-    plt.xlabel('Cache level')
-    plt.ylabel('Time (secs)')
+    plt.plot(ks, t_cons, label="cons")
+    plt.plot(ks, t_queries, label="queries")
+    plt.plot(ks, t_alls, label="all")
+    plt.title(f"b={b}, d={d}, repetitions={reps}, device={w0.device}")
+    plt.xlabel("Cache level")
+    plt.ylabel("Time (secs)")
     plt.legend()
     plt.savefig(img_path)
     plt.close()
@@ -63,13 +65,13 @@ def main():
 
 
 if __name__ == "__main__":
-    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     torch.manual_seed(1147481649)
 
     reps = 500
     b, d = 512, 10
 
-    t0, t1 = 0., 1.
+    t0, t1 = 0.0, 1.0
     ts = torch.rand(size=(reps,)).numpy()
 
     main()
