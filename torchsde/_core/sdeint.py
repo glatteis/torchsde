@@ -126,7 +126,7 @@ def sdeint(
         extra_solver_state = solver.init_extra_solver_state(ts[0], y0)
     ys, extra_solver_state = solver.integrate(y0, ts, extra_solver_state)
 
-    return parse_return(y0, ys, extra_solver_state, extra, logqp)
+    return parse_return(y0, ys, extra_solver_state, extra, logqp, logqp_noise_penalty)
 
 
 def check_contract(
@@ -348,8 +348,33 @@ def check_contract(
     return sde, y0, ts, bm, method, options
 
 
-def parse_return(y0, ys, extra_solver_state, extra, logqp):
-    if logqp:
+def parse_return(y0, ys, extra_solver_state, extra, logqp, logqp_noise_penalty):
+    if logqp_noise_penalty:
+        ys, log_ratio, noise_penalty = ys.split(split_size=(y0.size(1) - 2, 1, 1), dim=2)
+        log_ratio_increments = torch.stack(
+            [
+                log_ratio_t_plus_1 - log_ratio_t
+                for log_ratio_t_plus_1, log_ratio_t in zip(
+                    log_ratio[1:], log_ratio[:-1]
+                )
+            ],
+            dim=0,
+        ).squeeze(dim=2)
+        noise_penalty_increments = torch.stack(
+            [
+                noise_penalty_t_plus_1 - noise_penalty_t
+                for noise_penalty_t_plus_1, noise_penalty_t in zip(
+                    noise_penalty[1:], noise_penalty[:-1]
+                )
+            ],
+            dim=0,
+        ).squeeze(dim=2)
+
+        if extra:
+            return ys, log_ratio_increments, noise_penalty_increments, extra_solver_state
+        else:
+            return ys, log_ratio_increments, noise_penalty_increments
+    elif logqp:
         ys, log_ratio = ys.split(split_size=(y0.size(1) - 1, 1), dim=2)
         log_ratio_increments = torch.stack(
             [
