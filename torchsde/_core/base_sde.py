@@ -371,7 +371,7 @@ class SDELogqpNoisePenalty(BaseSDE):
         f, g, h = self._base_f(t, y), self._base_g(t, y), self._base_h(t, y)
         u = misc.stable_division(f - h, g)
         f_logqp = 0.5 * (u**2).sum(dim=1, keepdim=True)
-        noise_penalty = misc.stable_division(torch.ones_like(g), g).sum(dim=1, keepdim=True)
+        noise_penalty = g.sum(dim=1, keepdim=True)
         return torch.cat([f, f_logqp, noise_penalty], dim=1)
 
     def g_diagonal(self, t, y: Tensor):
@@ -386,7 +386,7 @@ class SDELogqpNoisePenalty(BaseSDE):
         u = misc.stable_division(f - h, g)
         f_logqp = 0.5 * (u**2).sum(dim=1, keepdim=True)
         g_logqp = y.new_zeros(size=(y.size(0), 2))
-        noise_penalty = misc.stable_division(torch.ones_like(g), g).sum(dim=1, keepdim=True)
+        noise_penalty = g.sum(dim=1, keepdim=True)
         return torch.cat([f, f_logqp, noise_penalty], dim=1), torch.cat(
             [g, g_logqp], dim=1
         )
